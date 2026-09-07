@@ -7,7 +7,7 @@ pipeline {
     }
 
     environment {
-        DOCKERHUB_USER = "your-dockerhub-user"
+        DOCKERHUB_USER = "naaakul"
         BACKEND_IMAGE = "${DOCKERHUB_USER}/node-api"
         FRONTEND_IMAGE = "${DOCKERHUB_USER}/react-ui"
         IMAGE_TAG = "${BUILD_NUMBER}"
