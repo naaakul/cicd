@@ -1,0 +1,14 @@
+{
+  "name": "backend",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^7"
+  },
+  "dependencies": {
+    "hono": "^4.13.7",
+    "mongodb": "^7.6.0"
+  }
+}
