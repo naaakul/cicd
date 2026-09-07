@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: node-api
-          image: node-api:latest
+          image: naaakul/node-api:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000

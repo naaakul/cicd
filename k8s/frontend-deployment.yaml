@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: react-ui
-          image: react-ui:latest
+          image: naaakul/react-ui:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
