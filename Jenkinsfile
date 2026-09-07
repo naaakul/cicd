@@ -1,6 +1,11 @@
 pipeline {
     agent none
 
+    parameters {
+        booleanParam(name: 'BUILD_BACKEND', defaultValue: true, description: 'Build, scan, push & deploy the backend image')
+        booleanParam(name: 'BUILD_FRONTEND', defaultValue: true, description: 'Build, scan, push & deploy the frontend image')
+    }
+
     environment {
         DOCKERHUB_USER = "your-dockerhub-user"
         BACKEND_IMAGE = "${DOCKERHUB_USER}/node-api"
@@ -16,39 +21,39 @@ pipeline {
             }
         }
 
-        stage('Build Backend Image') {
+        stage('Build Images') {
             agent { label 'docker-node' }
             steps {
-                sh '''
-                    docker build -t $BACKEND_IMAGE:$IMAGE_TAG ./backend
-                '''
+                script {
+                    if (params.BUILD_BACKEND) {
+                        sh '''
+                            docker build -t $BACKEND_IMAGE:$IMAGE_TAG ./backend
+                        '''
+                    }
+                    if (params.BUILD_FRONTEND) {
+                        sh '''
+                            docker build -t $FRONTEND_IMAGE:$IMAGE_TAG ./frontend
+                        '''
+                    }
+                }
             }
         }
 
-        stage('Build Frontend Image') {
+        stage('Scan Images') {
             agent { label 'docker-node' }
             steps {
-                sh '''
-                    docker build -t $FRONTEND_IMAGE:$IMAGE_TAG ./frontend
-                '''
-            }
-        }
-
-        stage('Scan Backend Image') {
-            agent { label 'docker-node' }
-            steps {
-                sh '''
-                    trivy image --exit-code 0 --severity HIGH,CRITICAL $BACKEND_IMAGE:$IMAGE_TAG
-                '''
-            }
-        }
-
-        stage('Scan Frontend Image') {
-            agent { label 'docker-node' }
-            steps {
-                sh '''
-                    trivy image --exit-code 0 --severity HIGH,CRITICAL $FRONTEND_IMAGE:$IMAGE_TAG
-                '''
+                script {
+                    if (params.BUILD_BACKEND) {
+                        sh '''
+                            trivy image --exit-code 0 --severity HIGH,CRITICAL $BACKEND_IMAGE:$IMAGE_TAG
+                        '''
+                    }
+                    if (params.BUILD_FRONTEND) {
+                        sh '''
+                            trivy image --exit-code 0 --severity HIGH,CRITICAL $FRONTEND_IMAGE:$IMAGE_TAG
+                        '''
+                    }
+                }
             }
         }
 
@@ -58,9 +63,15 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh '''
                         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                        docker push $BACKEND_IMAGE:$IMAGE_TAG
-                        docker push $FRONTEND_IMAGE:$IMAGE_TAG
                     '''
+                    script {
+                        if (params.BUILD_BACKEND) {
+                            sh 'docker push $BACKEND_IMAGE:$IMAGE_TAG'
+                        }
+                        if (params.BUILD_FRONTEND) {
+                            sh 'docker push $FRONTEND_IMAGE:$IMAGE_TAG'
+                        }
+                    }
                 }
             }
         }
@@ -68,13 +79,22 @@ pipeline {
         stage('Deploy to Minikube') {
             agent { label 'minikube-target' }
             steps {
+                script {
+                    if (params.BUILD_BACKEND) {
+                        sh '''
+                            docker pull $BACKEND_IMAGE:$IMAGE_TAG
+                            minikube image load $BACKEND_IMAGE:$IMAGE_TAG
+                        '''
+                    }
+                    if (params.BUILD_FRONTEND) {
+                        sh '''
+                            docker pull $FRONTEND_IMAGE:$IMAGE_TAG
+                            minikube image load $FRONTEND_IMAGE:$IMAGE_TAG
+                        '''
+                    }
+                }
+
                 sh '''
-                    docker pull $BACKEND_IMAGE:$IMAGE_TAG
-                    docker pull $FRONTEND_IMAGE:$IMAGE_TAG
-
-                    minikube image load $BACKEND_IMAGE:$IMAGE_TAG
-                    minikube image load $FRONTEND_IMAGE:$IMAGE_TAG
-
                     kubectl apply -f k8s/mongo-pvc.yaml
                     kubectl apply -f k8s/mongo-deployment.yaml
                     kubectl apply -f k8s/mongo-service.yaml
@@ -84,13 +104,22 @@ pipeline {
 
                     kubectl apply -f k8s/frontend-deployment.yaml
                     kubectl apply -f k8s/frontend-service.yaml
-
-                    kubectl set image deployment/node-api node-api=$BACKEND_IMAGE:$IMAGE_TAG
-                    kubectl set image deployment/react-ui react-ui=$FRONTEND_IMAGE:$IMAGE_TAG
-
-                    kubectl rollout status deployment/node-api --timeout=180s
-                    kubectl rollout status deployment/react-ui --timeout=180s
                 '''
+
+                script {
+                    if (params.BUILD_BACKEND) {
+                        sh '''
+                            kubectl set image deployment/node-api node-api=$BACKEND_IMAGE:$IMAGE_TAG
+                            kubectl rollout status deployment/node-api --timeout=180s
+                        '''
+                    }
+                    if (params.BUILD_FRONTEND) {
+                        sh '''
+                            kubectl set image deployment/react-ui react-ui=$FRONTEND_IMAGE:$IMAGE_TAG
+                            kubectl rollout status deployment/react-ui --timeout=180s
+                        '''
+                    }
+                }
             }
         }
     }
@@ -98,15 +127,21 @@ pipeline {
     post {
         failure {
             node('minikube-target') {
-                sh '''
+                script {
                     echo "Deployment failed. Starting rollback..."
-
-                    kubectl rollout undo deployment/node-api || true
-                    kubectl rollout undo deployment/react-ui || true
-
-                    kubectl rollout status deployment/node-api --timeout=180s || true
-                    kubectl rollout status deployment/react-ui --timeout=180s || true
-                '''
+                    if (params.BUILD_BACKEND) {
+                        sh '''
+                            kubectl rollout undo deployment/node-api || true
+                            kubectl rollout status deployment/node-api --timeout=180s || true
+                        '''
+                    }
+                    if (params.BUILD_FRONTEND) {
+                        sh '''
+                            kubectl rollout undo deployment/react-ui || true
+                            kubectl rollout status deployment/react-ui --timeout=180s || true
+                        '''
+                    }
+                }
             }
         }
 

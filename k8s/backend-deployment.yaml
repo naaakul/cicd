@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: node-api
-          image: your-dockerhub-user/node-api:latest
+          image: node-api:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000

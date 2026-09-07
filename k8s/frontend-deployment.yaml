@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: react-ui
-          image: your-dockerhub-user/react-ui:latest
+          image: react-ui:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
