@@ -72,13 +72,15 @@ function App() {
   };
 
   return (
-    <main className="min-h-screen bg-background px-4 py-10 text-foreground sm:px-6">
+    <main className="min-h-screen bg-background px-4 py-10 text-foreground sm:px-6 bg-amber-300">
       <div className="mx-auto w-full max-w-2xl">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
             User Management
           </h1>
+
+          <div></div>
 
           <p className="mt-2 text-sm text-muted-foreground">
             Create and manage users with Preact, Bun, Hono and MongoDB.
